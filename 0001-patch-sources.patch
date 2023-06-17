@@ -1,0 +1,255 @@
+From 8d305752b50e5ffdc3cb3c5390bb8500929d66a2 Mon Sep 17 00:00:00 2001
+From: RohitVerma882 <rohitkumar882333@gmail.com>
+Date: Sat, 17 Jun 2023 08:33:59 +0530
+Subject: [PATCH] patch sources
+
+---
+ bashline.c              |  4 ++--
+ config-top.h            | 22 ++++++++++++++++++++--
+ lib/readline/complete.c |  2 +-
+ lib/readline/rlconf.h   |  6 +++++-
+ lib/sh/fpurge.c         |  2 +-
+ lib/sh/tmpfile.c        |  8 ++++++--
+ parse.y                 |  1 +
+ pathnames.h.in          |  8 ++++++++
+ shell.c                 | 14 +++++++++-----
+ y.tab.c                 |  1 +
+ 10 files changed, 54 insertions(+), 14 deletions(-)
+
+diff --git a/bashline.c b/bashline.c
+index c85b05b..babb76f 100644
+--- a/bashline.c
++++ b/bashline.c
+@@ -2645,8 +2645,8 @@ bash_groupname_completion_function (text, state)
+      const char *text;
+      int state;
+ {
+-#if defined (__WIN32__) || defined (__OPENNT) || !defined (HAVE_GRP_H)
+-  return ((char *)NULL);
++#if defined (__WIN32__) || defined (__OPENNT) || defined(__ANDROID__) || !defined (HAVE_GRP_H)
++   return ((char *)NULL);
+ #else
+   static char *gname = (char *)NULL;
+   static struct group *grent;
+diff --git a/config-top.h b/config-top.h
+index db4ab6e..50aead5 100644
+--- a/config-top.h
++++ b/config-top.h
+@@ -62,9 +62,14 @@
+ 
+ /* The default value of the PATH variable. */
+ #ifndef DEFAULT_PATH_VALUE
++#ifdef __ANDROID__
++#define DEFAULT_PATH_VALUE \
++  "/sbin:/vendor/bin:/system/sbin:/system/bin:/system/xbin"
++#else
+ #define DEFAULT_PATH_VALUE \
+   "/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:."
+ #endif
++#endif
+ 
+ /* If you want to unconditionally set a value for PATH in every restricted
+    shell, set this. */
+@@ -73,9 +78,14 @@
+ /* The value for PATH when invoking `command -p'.  This is only used when
+    the Posix.2 confstr () function, or CS_PATH define are not present. */
+ #ifndef STANDARD_UTILS_PATH
++#ifdef __ANDROID__
++#define STANDARD_UTILS_PATH \
++  "/system/bin"
++#else
+ #define STANDARD_UTILS_PATH \
+   "/bin:/usr/bin:/sbin:/usr/sbin:/etc:/usr/etc"
+ #endif
++#endif
+ 
+ /* The default path for enable -f */
+ #ifndef DEFAULT_LOADABLE_BUILTINS_PATH
+@@ -84,7 +94,7 @@
+ #endif
+ 
+ /* Default primary and secondary prompt strings. */
+-#define PPROMPT "\\s-\\v\\$ "
++#define PPROMPT "\\u@\\h:\\w $ "
+ #define SPROMPT "> "
+ 
+ /* Undefine this if you don't want the ksh-compatible behavior of reprinting
+@@ -94,13 +104,21 @@
+ #define KSH_COMPATIBLE_SELECT
+ 
+ /* Default interactive shell startup file. */
+-#define DEFAULT_BASHRC "~/.bashrc"
++#define DEFAULT_BASHRC "/data/user/0/com.rv882.adbify/files/bashrc"
+ 
+ /* System-wide .bashrc file for interactive shells. */
++#ifdef __ANDROID__
++/* #define SYS_BASHRC "/data/user/0/com.rv882.adbify/files/etc/bash.bashrc" */
++#else
+ /* #define SYS_BASHRC "/etc/bash.bashrc" */
++#endif
+ 
+ /* System-wide .bash_logout for login shells. */
++#ifdef __ANDROID__
++/* #define SYS_BASH_LOGOUT "/data/user/0/com.rv882.adbify/files/etc/bash.bash_logout" */
++#else
+ /* #define SYS_BASH_LOGOUT "/etc/bash.bash_logout" */
++#endif
+ 
+ /* Define this to make non-interactive shells begun with argv[0][0] == '-'
+    run the startup files when not in posix mode. */
+diff --git a/lib/readline/complete.c b/lib/readline/complete.c
+index e5d224e..5370982 100644
+--- a/lib/readline/complete.c
++++ b/lib/readline/complete.c
+@@ -2265,7 +2265,7 @@ rl_completion_matches (const char *text, rl_compentry_func_t *entry_function)
+ char *
+ rl_username_completion_function (const char *text, int state)
+ {
+-#if defined (__WIN32__) || defined (__OPENNT)
++#if defined (__WIN32__) || defined (__OPENNT) || defined (__ANDROID__)
+   return (char *)NULL;
+ #else /* !__WIN32__ && !__OPENNT) */
+   static char *username = (char *)NULL;
+diff --git a/lib/readline/rlconf.h b/lib/readline/rlconf.h
+index b6d6a2f..3b1e8af 100644
+--- a/lib/readline/rlconf.h
++++ b/lib/readline/rlconf.h
+@@ -40,10 +40,14 @@
+ #define PREFIX_META_HACK
+ 
+ /* The next-to-last-ditch effort file name for a user-specific init file. */
+-#define DEFAULT_INPUTRC "~/.inputrc"
++#define DEFAULT_INPUTRC "/data/user/0/com.rv882.adbify/files/inputrc"
+ 
+ /* The ultimate last-ditch filename for an init file -- system-wide. */
++#ifdef __ANDROID__
++#define SYS_INPUTRC "/data/user/0/com.rv882.adbify/files/etc/inputrc"
++#else
+ #define SYS_INPUTRC "/etc/inputrc"
++#endif
+ 
+ /* If defined, expand tabs to spaces. */
+ #define DISPLAY_TABS
+diff --git a/lib/sh/fpurge.c b/lib/sh/fpurge.c
+index 8cd4e36..002dd60 100644
+--- a/lib/sh/fpurge.c
++++ b/lib/sh/fpurge.c
+@@ -31,7 +31,7 @@
+ #endif
+ extern int fpurge PARAMS((FILE *stream));
+ 
+-#if HAVE___FPURGE                   /* glibc >= 2.2, Haiku, Solaris >= 7 */
++#if defined HAVE___FPURGE && defined HAVE_STDIO_EXT_H /* glibc >= 2.2, Haiku, Solaris >= 7 */
+ # include <stdio_ext.h>
+ #endif
+ #include <stdlib.h>
+diff --git a/lib/sh/tmpfile.c b/lib/sh/tmpfile.c
+index ef8b067..2a18a1b 100644
+--- a/lib/sh/tmpfile.c
++++ b/lib/sh/tmpfile.c
+@@ -74,6 +74,11 @@ get_sys_tmpdir ()
+     return sys_tmpdir;
+ #endif
+ 
++#ifdef __ANDROID__
++  sys_tmpdir = "/data/user/0/com.rv882.adbify/cache";
++  if (file_iswdir (sys_tmpdir))
++    return sys_tmpdir;
++#else
+   sys_tmpdir = "/tmp";
+   if (file_iswdir (sys_tmpdir))
+     return sys_tmpdir;
+@@ -85,9 +90,8 @@ get_sys_tmpdir ()
+   sys_tmpdir = "/usr/tmp";
+   if (file_iswdir (sys_tmpdir))
+     return sys_tmpdir;
+-
++#endif
+   sys_tmpdir = DEFAULT_TMPDIR;
+-
+   return sys_tmpdir;
+ }
+ 
+diff --git a/parse.y b/parse.y
+index 1d12e63..8f6e90f 100644
+--- a/parse.y
++++ b/parse.y
+@@ -35,6 +35,7 @@
+ #endif
+ 
+ #include <stdio.h>
++#include <errno.h>
+ #include "chartypes.h"
+ #include <signal.h>
+ 
+diff --git a/pathnames.h.in b/pathnames.h.in
+index 38d0939..a27d17d 100644
+--- a/pathnames.h.in
++++ b/pathnames.h.in
+@@ -22,10 +22,18 @@
+ #define _PATHNAMES_H_
+ 
+ /* The default file for hostname completion. */
++#ifdef __ANDROID__
++#define DEFAULT_HOSTS_FILE "/data/user/0/com.rv882.adbify/files/etc/hosts"
++#else
+ #define DEFAULT_HOSTS_FILE "/etc/hosts"
++#endif
+ 
+ /* The default login shell startup file. */
++#ifdef __ANDROID__
++#define SYS_PROFILE "/data/user/0/com.rv882.adbify/files/etc/profile"
++#else
+ #define SYS_PROFILE "/etc/profile"
++#endif
+ 
+ /* The default location of the bash debugger initialization/startup file. */
+ #define DEBUGGER_START_FILE	"@DEBUGGER_START_FILE@"
+diff --git a/shell.c b/shell.c
+index ebd8965..f47abbf 100644
+--- a/shell.c
++++ b/shell.c
+@@ -1911,7 +1911,9 @@ get_current_user_info ()
+ 	}
+       else
+ 	{
+-	  current_user.user_name = _("I have no name!");
++	  current_user.user_name = getenv("USER");
++	  if (!current_user.user_name)
++		  current_user.user_name = _("I have no name!");
+ 	  current_user.user_name = savestring (current_user.user_name);
+ 	  current_user.shell = savestring ("/bin/sh");
+ 	  current_user.home_dir = savestring ("/");
+@@ -1952,11 +1954,13 @@ shell_initialize ()
+   if (current_host_name == 0)
+     {
+       /* Initialize current_host_name. */
+-      if (gethostname (hostname, 255) < 0)
++      if (getenv("HOSTNAME"))
++  current_host_name = savestring (getenv("HOSTNAME"));
++      else if (gethostname (hostname, 255) >= 0)
++  current_host_name = savestring (hostname);
++       else
+ 	current_host_name = "??host??";
+-      else
+-	current_host_name = savestring (hostname);
+-    }
++     }
+ 
+   /* Initialize the stuff in current_user that comes from the password
+      file.  We don't need to do this right away if the shell is not
+diff --git a/y.tab.c b/y.tab.c
+index 50c5845..bbec22e 100644
+--- a/y.tab.c
++++ b/y.tab.c
+@@ -85,6 +85,7 @@
+ #endif
+ 
+ #include <stdio.h>
++#include <errno.h>
+ #include "chartypes.h"
+ #include <signal.h>
+ 
+-- 
+2.40.0
+
